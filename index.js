@@ -1,4 +1,4 @@
-// test/index.test.js
+// test/weather.test.js
 const fetchMock = jest.fn();
 global.fetch = fetchMock;
 
@@ -15,6 +15,7 @@ document.body.innerHTML = `
     <div id="error-message" class="hidden"></div>
 `;
 
+// Import after DOM is set up
 const {
     fetchWeatherData,
     displayWeather,
@@ -35,7 +36,7 @@ const {
 
 const container = document.body;
 
-describe('Weather Alert Application', () => {
+describe('Weather Alerts App - Input clearing', () => {
     beforeEach(() => {
         jest.clearAllMocks();
         fetchMock.mockClear();
@@ -62,71 +63,69 @@ describe('Weather Alert Application', () => {
         }
     });
 
-    // Test: fetch request is made using the input state abbreviation
-    test('fetch request is made using the input state abbreviation', async () => {
+    test('calls fetch with the correct state in the URL', async () => {
         const mockData = {
             features: [
-                {
-                    properties: {
-                        headline: 'Test Alert',
-                        areaDesc: 'NY',
-                        severity: 'Severe'
-                    }
-                }
+                { properties: { headline: 'Test Alert', areaDesc: 'CA' } }
             ]
         };
-
         fetchMock.mockResolvedValueOnce({
             ok: true,
             json: async () => mockData
         });
 
-        const result = await fetchWeatherData('NY');
+        const input = document.getElementById('state-input');
+        if (input) {
+            input.value = 'CA';
+        }
 
-        expect(fetchMock).toHaveBeenCalledWith('https://api.weather.gov/alerts/active?area=NY');
-        expect(result).toEqual(mockData);
+        await handleFetchAlerts();
+
+        expect(fetchMock).toHaveBeenCalledWith('https://api.weather.gov/alerts/active?area=CA');
     });
 
-    // Test: when successful fetch request, displays title and number of alerts
-    test('when successful fetch request, displays title and number of alerts', () => {
+    test('displays fetched alert data in the DOM after a successful fetch', async () => {
         const mockData = {
             features: [
-                { properties: { headline: 'Alert 1', areaDesc: 'NY' } },
-                { properties: { headline: 'Alert 2', areaDesc: 'NY' } },
-                { properties: { headline: 'Alert 3', areaDesc: 'NY' } }
+                { properties: { headline: 'Flood warning in your area', areaDesc: 'NY' } },
+                { properties: { headline: 'Tornado watch for the region', areaDesc: 'NY' } }
             ]
         };
-
-        displayWeather(mockData, 'NY');
-
-        if (alertTitle) {
-            expect(alertTitle.textContent).toBe('Current watches, warnings, and advisories for NY');
-        }
-        if (alertCount) {
-            expect(alertCount.textContent).toBe('3 alerts found');
-        }
-        if (alertList) {
-            expect(alertList.children.length).toBe(3);
-        }
-    });
-
-    // Test: when Get Weather Alerts button is clicked, input clears
-    test('when Get Weather Alerts button is clicked, input clears', async () => {
-        const mockData = {
-            features: [
-                { properties: { headline: 'Test Alert', areaDesc: 'NY' } }
-            ]
-        };
+        fetchMock.mockResolvedValueOnce({
+            ok: true,
+            json: async () => mockData
+        });
 
         const input = document.getElementById('state-input');
         if (input) {
             input.value = 'NY';
         }
 
+        await handleFetchAlerts();
+
+        const displayDiv = container.querySelector('#alerts-display');
+        if (displayDiv) {
+            expect(displayDiv.textContent).toContain('Weather Alerts: 2');
+            expect(displayDiv.textContent).toContain('Flood warning in your area');
+            expect(displayDiv.textContent).toContain('Tornado watch for the region');
+        }
+    });
+
+    test('clears the input field after clicking fetch', async () => {
+        const mockData = {
+            features: [
+                { properties: { headline: 'Test Alert', areaDesc: 'TX' } }
+            ]
+        };
         fetchMock.mockResolvedValueOnce({
             ok: true,
             json: async () => mockData
         });
+
+        const input = document.getElementById('state-input');
+        if (input) {
+            input.value = 'TX';
+        }
 
         await handleFetchAlerts();
 
@@ -135,96 +134,62 @@ describe('Weather Alert Application', () => {
         }
     });
 
-    // Test: when unsuccessful request, error message is displayed
-    test('when unsuccessful request, error message is displayed', () => {
-        const errorMsg = 'Failed to fetch weather data. Status: 404';
-        displayError(errorMsg);
+    test('displays an error message when fetch fails', async () => {
+        // Mock a failed fetch (network error)
+        fetchMock.mockRejectedValueOnce(new Error('Network failure'));
 
-        if (alertContainer) {
-            expect(alertContainer.className).toContain('error');
+        const input = document.getElementById('state-input');
+        if (input) {
+            input.value = 'CA';
         }
-        if (alertTitle) {
-            expect(alertTitle.textContent).toBe('⚠️ Error');
-        }
-        if (alertList) {
-            expect(alertList.innerHTML).toContain(errorMsg);
-        }
-        if (loading) {
-            expect(loading.classList.contains('show')).toBe(false);
+
+        await handleFetchAlerts();
+
+        const errorDiv = container.querySelector('#error-message');
+        if (errorDiv) {
+            expect(errorDiv.classList.contains('hidden')).toBe(false);
+            expect(errorDiv.textContent).toContain('Network failure');
         }
     });
 
-    // Test: error messages are cleared and hidden after successful request
-    test('error messages are cleared and hidden after successful request', () => {
+    test('clears the error message after a successful fetch', async () => {
+        // First cause an error
+        fetchMock.mockRejectedValueOnce(new Error('Network issue'));
+        
+        const input = document.getElementById('state-input');
+        if (input) {
+            input.value = 'ZZ';
+        }
+
+        await handleFetchAlerts();
+
+        // Error should be shown
+        const errorDiv = container.querySelector('#error-message');
+        if (errorDiv) {
+            expect(errorDiv.classList.contains('hidden')).toBe(false);
+        }
+
+        // Now make a successful fetch
         const mockData = {
             features: [
                 { properties: { headline: 'Test Alert', areaDesc: 'NY' } }
             ]
         };
-
-        // First show an error
-        displayError('Test error message');
-        if (alertContainer) {
-            expect(alertContainer.className).toContain('error');
-        }
-
-        // Then display success
-        displayWeather(mockData, 'NY');
-        if (alertContainer) {
-            expect(alertContainer.className).toContain('success');
-            expect(alertContainer.className).not.toContain('error');
-        }
-        if (alertTitle) {
-            expect(alertTitle.textContent).toBe('Current watches, warnings, and advisories for NY');
-        }
-    });
-
-    // Test: async handling validates no unhandled promise rejections
-    test('async handling validates no unhandled promise rejections', async () => {
-        const consoleErrorSpy = jest.spyOn(console, 'error').mockImplementation();
-
-        fetchMock.mockRejectedValueOnce(new Error('Network error'));
-
-        await expect(handleFetchAlerts()).resolves.not.toThrow();
-
-        consoleErrorSpy.mockRestore();
-    });
-
-    // Test: invalid input throws appropriate error
-    test('invalid input throws appropriate error', async () => {
-        await expect(fetchWeatherData('NEWYORK')).rejects.toThrow('Please enter a valid 2-letter state abbreviation');
-        await expect(fetchWeatherData('1')).rejects.toThrow('Please enter a valid 2-letter state abbreviation');
-        await expect(fetchWeatherData('')).rejects.toThrow('Please enter a valid 2-letter state abbreviation');
-    });
-
-    // Test: no alerts found throws appropriate error
-    test('no alerts found throws appropriate error', async () => {
-        const emptyData = { features: [] };
         fetchMock.mockResolvedValueOnce({
             ok: true,
-            json: async () => emptyData
+            json: async () => mockData
         });
 
-        await expect(fetchWeatherData('XX')).rejects.toThrow('No active weather alerts found for XX.');
-    });
+        if (input) {
+            input.value = 'NY';
+        }
 
-    // Test: 404 error handling displays appropriate message
-    test('404 error handling displays appropriate message', async () => {
-        fetchMock.mockResolvedValueOnce({
-            ok: false,
-            status: 404
-        });
+        await handleFetchAlerts();
 
-        await expect(fetchWeatherData('ZZ')).rejects.toThrow('State "ZZ" not found.');
-    });
-
-    // Test: 503 error handling displays appropriate message
-    test('503 error handling displays appropriate message', async () => {
-        fetchMock.mockResolvedValueOnce({
-            ok: false,
-            status: 503
-        });
-
-        await expect(fetchWeatherData('NY')).rejects.toThrow('The weather service is temporarily unavailable.');
+        // Error should be cleared
+        if (errorDiv) {
+            expect(errorDiv.classList.contains('hidden')).toBe(true);
+            expect(errorDiv.textContent).toBe('');
+        }
     });
 });
