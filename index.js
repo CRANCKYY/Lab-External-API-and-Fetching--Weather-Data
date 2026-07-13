@@ -60,9 +60,9 @@ function displayWeather(data, state) {
         }
     }
 
-    // Update title and count
-    alertTitle.textContent = `Current watches, warnings, and advisories for ${stateName}`;
-    alertCount.textContent = `${alertCountNum} alert${alertCountNum > 1 ? 's' : ''} found`;
+    // Update title and count - WITH NULL CHECKS
+    if (alertTitle) alertTitle.textContent = `Current watches, warnings, and advisories for ${stateName}`;
+    if (alertCount) alertCount.textContent = `${alertCountNum} alert${alertCountNum > 1 ? 's' : ''} found`;
 
     // Update alerts display for tests
     if (alertsDisplay) {
@@ -70,7 +70,7 @@ function displayWeather(data, state) {
     }
 
     // Clear previous list
-    alertList.innerHTML = '';
+    if (alertList) alertList.innerHTML = '';
 
     // Loop through each alert and add to list
     features.forEach(function(feature) {
@@ -99,13 +99,15 @@ function displayWeather(data, state) {
         }
 
         li.appendChild(details);
-        alertList.appendChild(li);
+        if (alertList) alertList.appendChild(li);
     });
 
     // Show the container with success styling
-    alertContainer.className = 'show success';
-    alertContainer.style.display = 'block';
-    loading.classList.remove('show');
+    if (alertContainer) {
+        alertContainer.className = 'show success';
+        alertContainer.style.display = 'block';
+    }
+    if (loading) loading.classList.remove('show');
 
     // Hide error message on success
     if (errorMessage) {
@@ -116,15 +118,15 @@ function displayWeather(data, state) {
 
 // Step 3: Clear and Reset the UI
 function clearUI() {
-    alertTitle.textContent = '';
-    alertCount.textContent = '';
-    alertList.innerHTML = '';
-    alertContainer.className = '';
-    alertContainer.style.display = 'none';
-    loading.classList.remove('show');
-    if (alertsDisplay) {
-        alertsDisplay.textContent = '';
+    if (alertTitle) alertTitle.textContent = '';
+    if (alertCount) alertCount.textContent = '';
+    if (alertList) alertList.innerHTML = '';
+    if (alertContainer) {
+        alertContainer.className = '';
+        alertContainer.style.display = 'none';
     }
+    if (loading) loading.classList.remove('show');
+    if (alertsDisplay) alertsDisplay.textContent = '';
     if (errorMessage) {
         errorMessage.classList.add('hidden');
         errorMessage.textContent = '';
@@ -133,12 +135,14 @@ function clearUI() {
 
 // Step 4: Implement Error Handling
 function displayError(message) {
-    alertContainer.className = 'show error';
-    alertContainer.style.display = 'block';
-    alertTitle.textContent = '⚠️ Error';
-    alertCount.textContent = '';
-    alertList.innerHTML = `<li class="error-message">${message}</li>`;
-    loading.classList.remove('show');
+    if (alertContainer) {
+        alertContainer.className = 'show error';
+        alertContainer.style.display = 'block';
+    }
+    if (alertTitle) alertTitle.textContent = '⚠️ Error';
+    if (alertCount) alertCount.textContent = '';
+    if (alertList) alertList.innerHTML = `<li class="error-message">${message}</li>`;
+    if (loading) loading.classList.remove('show');
 
     // Show error message for tests
     if (errorMessage) {
@@ -174,15 +178,14 @@ async function handleFetchAlerts() {
     if (loading) loading.classList.add('show');
     if (fetchBtn) fetchBtn.disabled = true;
 
-    alertContainer.className = '';
-    alertContainer.style.display = 'none';
-    alertTitle.textContent = '';
-    alertCount.textContent = '';
-    alertList.innerHTML = '';
-
-    if (alertsDisplay) {
-        alertsDisplay.textContent = '';
+    if (alertContainer) {
+        alertContainer.className = '';
+        alertContainer.style.display = 'none';
     }
+    if (alertTitle) alertTitle.textContent = '';
+    if (alertCount) alertCount.textContent = '';
+    if (alertList) alertList.innerHTML = '';
+    if (alertsDisplay) alertsDisplay.textContent = '';
 
     try {
         const data = await fetchWeatherData(state);
