@@ -15,8 +15,8 @@ const alertCount = document.getElementById('alert-count');
 const alertList = document.getElementById('alert-list');
 const loading = document.getElementById('loading');
 
-// API Configuration
-const API_BASE_URL = 'https://api.weather.gov/alerts/active/area/';
+// API Configuration - FIXED to match test expectations
+const API_BASE_URL = 'https://api.weather.gov/alerts/active?area=';
 
 // Step 1: Fetch Alerts for a State from the API
 // =============================================
@@ -67,7 +67,6 @@ function displayWeather(data, state) {
     let stateName = state.toUpperCase();
     if (features.length > 0 && features[0].properties && features[0].properties.areaDesc) {
         const areaDesc = features[0].properties.areaDesc;
-        // Try to extract state name from area description
         const stateMatch = areaDesc.match(/\b([A-Z]{2})\b/);
         if (stateMatch) {
             stateName = stateMatch[0];
@@ -118,6 +117,7 @@ function displayWeather(data, state) {
 
     // Show the container with success styling
     alertContainer.className = 'show success';
+    alertContainer.style.display = 'block';
     loading.classList.remove('show');
 }
 
@@ -151,29 +151,33 @@ function clearErrorAndShowSuccess(data, state) {
 // Step 5: Optional Additional Features
 // ====================================
 // Feature 1: Input validation - only allow letters, max 2 characters
-stateInput.addEventListener('input', function() {
-    this.value = this.value.replace(/[^A-Za-z]/g, '').toUpperCase().slice(0, 2);
-});
+if (stateInput) {
+    stateInput.addEventListener('input', function() {
+        this.value = this.value.replace(/[^A-Za-z]/g, '').toUpperCase().slice(0, 2);
+    });
 
-// Feature 2: Enter key support
-stateInput.addEventListener('keydown', function(event) {
-    if (event.key === 'Enter') {
-        handleFetchAlerts();
-    }
-});
+    // Feature 2: Enter key support
+    stateInput.addEventListener('keydown', function(event) {
+        if (event.key === 'Enter') {
+            handleFetchAlerts();
+        }
+    });
+}
 
 // Feature 3: Auto-focus on page load
 window.addEventListener('DOMContentLoaded', function() {
-    stateInput.focus();
+    if (stateInput) {
+        stateInput.focus();
+    }
 });
 
 // Main function to handle fetch and display
 async function handleFetchAlerts() {
-    const state = stateInput.value.trim().toUpperCase();
+    const state = stateInput ? stateInput.value.trim().toUpperCase() : '';
 
     // Show loading state
-    loading.classList.add('show');
-    fetchBtn.disabled = true;
+    if (loading) loading.classList.add('show');
+    if (fetchBtn) fetchBtn.disabled = true;
 
     // Clear previous results (but keep loading visible)
     alertContainer.className = '';
@@ -190,20 +194,24 @@ async function handleFetchAlerts() {
         displayWeather(data, state);
 
         // Step 3: Clear input after successful fetch
-        stateInput.value = '';
+        if (stateInput) {
+            stateInput.value = '';
+        }
 
     } catch (error) {
         // Step 4: Display error message
         displayError(error.message);
     } finally {
         // Always re-enable the button and hide loading
-        fetchBtn.disabled = false;
-        loading.classList.remove('show');
+        if (fetchBtn) fetchBtn.disabled = false;
+        if (loading) loading.classList.remove('show');
     }
 }
 
 // Event listener for the button
-fetchBtn.addEventListener('click', handleFetchAlerts);
+if (fetchBtn) {
+    fetchBtn.addEventListener('click', handleFetchAlerts);
+}
 
 // Export for testing (Jest)
 if (typeof module !== 'undefined' && module.exports) {
