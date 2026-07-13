@@ -1,11 +1,3 @@
-// Task 1: Define Project Needs and Goals
-// ======================================
-// This application fetches weather alerts from the National Weather Service API
-// for a specific U.S. state and displays them on the page.
-
-// Task 2: Design and Develop Code
-// ================================
-
 // DOM Elements
 const stateInput = document.getElementById('state-input');
 const fetchBtn = document.getElementById('fetch-btn');
@@ -14,14 +6,14 @@ const alertTitle = document.getElementById('alert-title');
 const alertCount = document.getElementById('alert-count');
 const alertList = document.getElementById('alert-list');
 const loading = document.getElementById('loading');
+const alertsDisplay = document.getElementById('alerts-display');
+const errorMessage = document.getElementById('error-message');
 
-// API Configuration - FIXED to match test expectations
+// API Configuration
 const API_BASE_URL = 'https://api.weather.gov/alerts/active?area=';
 
 // Step 1: Fetch Alerts for a State from the API
-// =============================================
 async function fetchWeatherData(state) {
-    // Validate input - must be exactly 2 letters
     if (!state || state.length !== 2 || !/^[A-Za-z]{2}$/.test(state)) {
         throw new Error('Please enter a valid 2-letter state abbreviation (e.g., NY, CA, TX).');
     }
@@ -31,7 +23,6 @@ async function fetchWeatherData(state) {
     try {
         const response = await fetch(url);
 
-        // Check if response is ok (status 200-299)
         if (!response.ok) {
             if (response.status === 404) {
                 throw new Error(`State "${state.toUpperCase()}" not found. Please enter a valid U.S. state abbreviation.`);
@@ -44,7 +35,6 @@ async function fetchWeatherData(state) {
 
         const data = await response.json();
 
-        // Check if features array exists and has data
         if (!data.features || data.features.length === 0) {
             throw new Error(`No active weather alerts found for ${state.toUpperCase()}.`);
         }
@@ -52,18 +42,15 @@ async function fetchWeatherData(state) {
         return data;
 
     } catch (error) {
-        // Re-throw the error to be handled by the caller
         throw error;
     }
 }
 
 // Step 2: Display the Alerts on the Page
-// ======================================
 function displayWeather(data, state) {
     const features = data.features;
     const alertCountNum = features.length;
 
-    // Get state name from the first feature
     let stateName = state.toUpperCase();
     if (features.length > 0 && features[0].properties && features[0].properties.areaDesc) {
         const areaDesc = features[0].properties.areaDesc;
@@ -77,6 +64,11 @@ function displayWeather(data, state) {
     alertTitle.textContent = `Current watches, warnings, and advisories for ${stateName}`;
     alertCount.textContent = `${alertCountNum} alert${alertCountNum > 1 ? 's' : ''} found`;
 
+    // Update alerts display for tests
+    if (alertsDisplay) {
+        alertsDisplay.textContent = `Weather Alerts: ${alertCountNum}`;
+    }
+
     // Clear previous list
     alertList.innerHTML = '';
 
@@ -86,24 +78,20 @@ function displayWeather(data, state) {
 
         const li = document.createElement('li');
 
-        // Headline
         const headline = document.createElement('div');
         headline.className = 'headline';
         headline.textContent = properties.headline || properties.event || 'Unknown Alert';
         li.appendChild(headline);
 
-        // Details
         const details = document.createElement('div');
         details.className = 'details';
 
-        // Severity
         if (properties.severity) {
             const severity = document.createElement('span');
             severity.textContent = `Severity: ${properties.severity} | `;
             details.appendChild(severity);
         }
 
-        // Area
         if (properties.areaDesc) {
             const area = document.createElement('span');
             area.textContent = `Area: ${properties.areaDesc}`;
@@ -111,7 +99,6 @@ function displayWeather(data, state) {
         }
 
         li.appendChild(details);
-
         alertList.appendChild(li);
     });
 
@@ -119,10 +106,15 @@ function displayWeather(data, state) {
     alertContainer.className = 'show success';
     alertContainer.style.display = 'block';
     loading.classList.remove('show');
+
+    // Hide error message on success
+    if (errorMessage) {
+        errorMessage.classList.add('hidden');
+        errorMessage.textContent = '';
+    }
 }
 
 // Step 3: Clear and Reset the UI
-// ==============================
 function clearUI() {
     alertTitle.textContent = '';
     alertCount.textContent = '';
@@ -130,10 +122,16 @@ function clearUI() {
     alertContainer.className = '';
     alertContainer.style.display = 'none';
     loading.classList.remove('show');
+    if (alertsDisplay) {
+        alertsDisplay.textContent = '';
+    }
+    if (errorMessage) {
+        errorMessage.classList.add('hidden');
+        errorMessage.textContent = '';
+    }
 }
 
 // Step 4: Implement Error Handling
-// ================================
 function displayError(message) {
     alertContainer.className = 'show error';
     alertContainer.style.display = 'block';
@@ -141,22 +139,20 @@ function displayError(message) {
     alertCount.textContent = '';
     alertList.innerHTML = `<li class="error-message">${message}</li>`;
     loading.classList.remove('show');
-}
 
-// Clear error messages and hide after successful request
-function clearErrorAndShowSuccess(data, state) {
-    displayWeather(data, state);
+    // Show error message for tests
+    if (errorMessage) {
+        errorMessage.classList.remove('hidden');
+        errorMessage.textContent = message;
+    }
 }
 
 // Step 5: Optional Additional Features
-// ====================================
-// Feature 1: Input validation - only allow letters, max 2 characters
 if (stateInput) {
     stateInput.addEventListener('input', function() {
         this.value = this.value.replace(/[^A-Za-z]/g, '').toUpperCase().slice(0, 2);
     });
 
-    // Feature 2: Enter key support
     stateInput.addEventListener('keydown', function(event) {
         if (event.key === 'Enter') {
             handleFetchAlerts();
@@ -164,7 +160,7 @@ if (stateInput) {
     });
 }
 
-// Feature 3: Auto-focus on page load
+// Auto-focus on page load
 window.addEventListener('DOMContentLoaded', function() {
     if (stateInput) {
         stateInput.focus();
@@ -175,34 +171,31 @@ window.addEventListener('DOMContentLoaded', function() {
 async function handleFetchAlerts() {
     const state = stateInput ? stateInput.value.trim().toUpperCase() : '';
 
-    // Show loading state
     if (loading) loading.classList.add('show');
     if (fetchBtn) fetchBtn.disabled = true;
 
-    // Clear previous results (but keep loading visible)
     alertContainer.className = '';
     alertContainer.style.display = 'none';
     alertTitle.textContent = '';
     alertCount.textContent = '';
     alertList.innerHTML = '';
 
-    try {
-        // Step 1: Fetch data
-        const data = await fetchWeatherData(state);
+    if (alertsDisplay) {
+        alertsDisplay.textContent = '';
+    }
 
-        // Step 2 & 4: Display data and clear errors on success
+    try {
+        const data = await fetchWeatherData(state);
         displayWeather(data, state);
 
-        // Step 3: Clear input after successful fetch
+        // CLEAR THE INPUT AFTER SUCCESSFUL FETCH
         if (stateInput) {
             stateInput.value = '';
         }
 
     } catch (error) {
-        // Step 4: Display error message
         displayError(error.message);
     } finally {
-        // Always re-enable the button and hide loading
         if (fetchBtn) fetchBtn.disabled = false;
         if (loading) loading.classList.remove('show');
     }
@@ -228,6 +221,8 @@ if (typeof module !== 'undefined' && module.exports) {
         alertCount,
         alertList,
         loading,
+        alertsDisplay,
+        errorMessage,
         API_BASE_URL
     };
 }
