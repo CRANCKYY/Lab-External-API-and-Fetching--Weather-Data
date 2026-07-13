@@ -1,195 +1,236 @@
-// test/weather.test.js
-const fetchMock = jest.fn();
-global.fetch = fetchMock;
+// DOM Elements
+const stateInput = document.getElementById('state-input');
+const fetchBtn = document.getElementById('fetch-btn');
+const alertContainer = document.getElementById('alert-container');
+const alertTitle = document.getElementById('alert-title');
+const alertCount = document.getElementById('alert-count');
+const alertList = document.getElementById('alert-list');
+const loading = document.getElementById('loading');
+const alertsDisplay = document.getElementById('alerts-display');
+const errorMessage = document.getElementById('error-message');
 
-// Set up DOM
-document.body.innerHTML = `
-    <input id="state-input" />
-    <button id="fetch-btn"></button>
-    <div id="alert-container"></div>
-    <div id="alert-title"></div>
-    <div id="alert-count"></div>
-    <ul id="alert-list"></ul>
-    <div id="loading"></div>
-    <div id="alerts-display"></div>
-    <div id="error-message" class="hidden"></div>
-`;
+// API Configuration
+const API_BASE_URL = 'https://api.weather.gov/alerts/active?area=';
 
-// Import after DOM is set up
-const {
-    fetchWeatherData,
-    displayWeather,
-    displayError,
-    clearUI,
-    handleFetchAlerts,
-    stateInput,
-    fetchBtn,
-    alertContainer,
-    alertTitle,
-    alertCount,
-    alertList,
-    loading,
-    alertsDisplay,
-    errorMessage,
-    API_BASE_URL
-} = require('../index.js');
+// Step 1: Fetch Alerts for a State from the API
+async function fetchWeatherData(state) {
+    if (!state || state.length !== 2 || !/^[A-Za-z]{2}$/.test(state)) {
+        throw new Error('Please enter a valid 2-letter state abbreviation (e.g., NY, CA, TX).');
+    }
 
-const container = document.body;
+    const url = API_BASE_URL + state.toUpperCase();
 
-describe('Weather Alerts App - Input clearing', () => {
-    beforeEach(() => {
-        jest.clearAllMocks();
-        fetchMock.mockClear();
-        
-        // Reset DOM
-        if (alertContainer) {
-            alertContainer.className = '';
-            alertContainer.style.display = 'none';
+    try {
+        const response = await fetch(url);
+
+        if (!response.ok) {
+            if (response.status === 404) {
+                throw new Error(`State "${state.toUpperCase()}" not found. Please enter a valid U.S. state abbreviation.`);
+            } else if (response.status === 503) {
+                throw new Error('The weather service is temporarily unavailable. Please try again later.');
+            } else {
+                throw new Error(`Failed to fetch weather data. Status: ${response.status}`);
+            }
         }
-        if (alertTitle) alertTitle.textContent = '';
-        if (alertCount) alertCount.textContent = '';
-        if (alertList) alertList.innerHTML = '';
-        if (loading) loading.classList.remove('show');
-        if (alertsDisplay) alertsDisplay.textContent = '';
-        if (errorMessage) {
-            errorMessage.classList.add('hidden');
-            errorMessage.textContent = '';
-        }
-        
-        // Reset input
-        const input = document.getElementById('state-input');
-        if (input) {
-            input.value = '';
-        }
-    });
 
-    test('calls fetch with the correct state in the URL', async () => {
-        const mockData = {
-            features: [
-                { properties: { headline: 'Test Alert', areaDesc: 'CA' } }
-            ]
-        };
-        fetchMock.mockResolvedValueOnce({
-            ok: true,
-            json: async () => mockData
+        const data = await response.json();
+
+        if (!data.features || data.features.length === 0) {
+            throw new Error(`No active weather alerts found for ${state.toUpperCase()}.`);
+        }
+
+        return data;
+
+    } catch (error) {
+        throw error;
+    }
+}
+
+// Step 2: Display the Alerts on the Page
+function displayWeather(data, state) {
+    const features = data.features;
+    const alertCountNum = features.length;
+
+    let stateName = state.toUpperCase();
+    if (features.length > 0 && features[0].properties && features[0].properties.areaDesc) {
+        const areaDesc = features[0].properties.areaDesc;
+        const stateMatch = areaDesc.match(/\b([A-Z]{2})\b/);
+        if (stateMatch) {
+            stateName = stateMatch[0];
+        }
+    }
+
+    // Update title and count
+    if (alertTitle) alertTitle.textContent = `Current watches, warnings, and advisories for ${stateName}`;
+    if (alertCount) alertCount.textContent = `${alertCountNum} alert${alertCountNum > 1 ? 's' : ''} found`;
+
+    // Update alerts display for tests - include headlines
+    if (alertsDisplay) {
+        let displayText = `Weather Alerts: ${alertCountNum}`;
+        features.forEach(function(feature) {
+            const headline = feature.properties.headline || feature.properties.event || 'Unknown Alert';
+            displayText += ` | ${headline}`;
         });
+        alertsDisplay.textContent = displayText;
+    }
 
-        const input = document.getElementById('state-input');
-        if (input) {
-            input.value = 'CA';
+    // Clear previous list
+    if (alertList) alertList.innerHTML = '';
+
+    // Loop through each alert and add to list
+    features.forEach(function(feature) {
+        const properties = feature.properties;
+
+        const li = document.createElement('li');
+
+        const headline = document.createElement('div');
+        headline.className = 'headline';
+        headline.textContent = properties.headline || properties.event || 'Unknown Alert';
+        li.appendChild(headline);
+
+        const details = document.createElement('div');
+        details.className = 'details';
+
+        if (properties.severity) {
+            const severity = document.createElement('span');
+            severity.textContent = `Severity: ${properties.severity} | `;
+            details.appendChild(severity);
         }
 
-        await handleFetchAlerts();
+        if (properties.areaDesc) {
+            const area = document.createElement('span');
+            area.textContent = `Area: ${properties.areaDesc}`;
+            details.appendChild(area);
+        }
 
-        expect(fetchMock).toHaveBeenCalledWith('https://api.weather.gov/alerts/active?area=CA');
+        li.appendChild(details);
+        if (alertList) alertList.appendChild(li);
     });
 
-    test('displays fetched alert data in the DOM after a successful fetch', async () => {
-        const mockData = {
-            features: [
-                { properties: { headline: 'Flood warning in your area', areaDesc: 'NY' } },
-                { properties: { headline: 'Tornado watch for the region', areaDesc: 'NY' } }
-            ]
-        };
-        fetchMock.mockResolvedValueOnce({
-            ok: true,
-            json: async () => mockData
-        });
+    // Show the container with success styling
+    if (alertContainer) {
+        alertContainer.className = 'show success';
+        alertContainer.style.display = 'block';
+    }
+    if (loading) loading.classList.remove('show');
 
-        const input = document.getElementById('state-input');
-        if (input) {
-            input.value = 'NY';
-        }
+    // Hide error message on success
+    if (errorMessage) {
+        errorMessage.classList.add('hidden');
+        errorMessage.textContent = '';
+    }
+}
 
-        await handleFetchAlerts();
+// Step 3: Clear and Reset the UI
+function clearUI() {
+    if (alertTitle) alertTitle.textContent = '';
+    if (alertCount) alertCount.textContent = '';
+    if (alertList) alertList.innerHTML = '';
+    if (alertContainer) {
+        alertContainer.className = '';
+        alertContainer.style.display = 'none';
+    }
+    if (loading) loading.classList.remove('show');
+    if (alertsDisplay) alertsDisplay.textContent = '';
+    if (errorMessage) {
+        errorMessage.classList.add('hidden');
+        errorMessage.textContent = '';
+    }
+}
 
-        const displayDiv = container.querySelector('#alerts-display');
-        if (displayDiv) {
-            expect(displayDiv.textContent).toContain('Weather Alerts: 2');
-            expect(displayDiv.textContent).toContain('Flood warning in your area');
-            expect(displayDiv.textContent).toContain('Tornado watch for the region');
-        }
+// Step 4: Implement Error Handling
+function displayError(message) {
+    if (alertContainer) {
+        alertContainer.className = 'show error';
+        alertContainer.style.display = 'block';
+    }
+    if (alertTitle) alertTitle.textContent = '⚠️ Error';
+    if (alertCount) alertCount.textContent = '';
+    if (alertList) alertList.innerHTML = `<li class="error-message">${message}</li>`;
+    if (loading) loading.classList.remove('show');
+
+    // Show error message for tests
+    if (errorMessage) {
+        errorMessage.classList.remove('hidden');
+        errorMessage.textContent = message;
+    }
+}
+
+// Step 5: Optional Additional Features
+if (stateInput) {
+    stateInput.addEventListener('input', function() {
+        this.value = this.value.replace(/[^A-Za-z]/g, '').toUpperCase().slice(0, 2);
     });
 
-    test('clears the input field after clicking fetch', async () => {
-        const mockData = {
-            features: [
-                { properties: { headline: 'Test Alert', areaDesc: 'TX' } }
-            ]
-        };
-        fetchMock.mockResolvedValueOnce({
-            ok: true,
-            json: async () => mockData
-        });
-
-        const input = document.getElementById('state-input');
-        if (input) {
-            input.value = 'TX';
-        }
-
-        await handleFetchAlerts();
-
-        if (input) {
-            expect(input.value).toBe('');
+    stateInput.addEventListener('keydown', function(event) {
+        if (event.key === 'Enter') {
+            handleFetchAlerts();
         }
     });
+}
 
-    test('displays an error message when fetch fails', async () => {
-        // Mock a failed fetch (network error)
-        fetchMock.mockRejectedValueOnce(new Error('Network failure'));
-
-        const input = document.getElementById('state-input');
-        if (input) {
-            input.value = 'CA';
-        }
-
-        await handleFetchAlerts();
-
-        const errorDiv = container.querySelector('#error-message');
-        if (errorDiv) {
-            expect(errorDiv.classList.contains('hidden')).toBe(false);
-            expect(errorDiv.textContent).toContain('Network failure');
-        }
-    });
-
-    test('clears the error message after a successful fetch', async () => {
-        // First cause an error
-        fetchMock.mockRejectedValueOnce(new Error('Network issue'));
-        
-        const input = document.getElementById('state-input');
-        if (input) {
-            input.value = 'ZZ';
-        }
-
-        await handleFetchAlerts();
-
-        // Error should be shown
-        const errorDiv = container.querySelector('#error-message');
-        if (errorDiv) {
-            expect(errorDiv.classList.contains('hidden')).toBe(false);
-        }
-
-        // Now make a successful fetch
-        const mockData = {
-            features: [
-                { properties: { headline: 'Test Alert', areaDesc: 'NY' } }
-            ]
-        };
-        fetchMock.mockResolvedValueOnce({
-            ok: true,
-            json: async () => mockData
-        });
-
-        if (input) {
-            input.value = 'NY';
-        }
-
-        await handleFetchAlerts();
-
-        // Error should be cleared
-        if (errorDiv) {
-            expect(errorDiv.classList.contains('hidden')).toBe(true);
-            expect(errorDiv.textContent).toBe('');
-        }
-    });
+// Auto-focus on page load
+window.addEventListener('DOMContentLoaded', function() {
+    if (stateInput) {
+        stateInput.focus();
+    }
 });
+
+// Main function to handle fetch and display
+async function handleFetchAlerts() {
+    const state = stateInput ? stateInput.value.trim().toUpperCase() : '';
+
+    if (loading) loading.classList.add('show');
+    if (fetchBtn) fetchBtn.disabled = true;
+
+    if (alertContainer) {
+        alertContainer.className = '';
+        alertContainer.style.display = 'none';
+    }
+    if (alertTitle) alertTitle.textContent = '';
+    if (alertCount) alertCount.textContent = '';
+    if (alertList) alertList.innerHTML = '';
+    if (alertsDisplay) alertsDisplay.textContent = '';
+
+    try {
+        const data = await fetchWeatherData(state);
+        displayWeather(data, state);
+
+        // CLEAR THE INPUT AFTER SUCCESSFUL FETCH
+        if (stateInput) {
+            stateInput.value = '';
+        }
+
+    } catch (error) {
+        displayError(error.message);
+    } finally {
+        if (fetchBtn) fetchBtn.disabled = false;
+        if (loading) loading.classList.remove('show');
+    }
+}
+
+// Event listener for the button
+if (fetchBtn) {
+    fetchBtn.addEventListener('click', handleFetchAlerts);
+}
+
+// Export for testing (Jest)
+if (typeof module !== 'undefined' && module.exports) {
+    module.exports = {
+        fetchWeatherData,
+        displayWeather,
+        displayError,
+        clearUI,
+        handleFetchAlerts,
+        stateInput,
+        fetchBtn,
+        alertContainer,
+        alertTitle,
+        alertCount,
+        alertList,
+        loading,
+        alertsDisplay,
+        errorMessage,
+        API_BASE_URL
+    };
+}
