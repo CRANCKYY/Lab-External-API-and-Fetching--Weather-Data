@@ -177,20 +177,13 @@
             color: #1a3a5c;
         }
 
-        /* Additional elements for tests */
+        /* Test elements - hidden by default but needed for tests */
         #alerts-display {
-            margin-top: 20px;
-            padding: 16px;
-            border-radius: 8px;
+            display: none;
         }
 
         #error-message {
-            margin-top: 20px;
-            padding: 16px;
-            border-radius: 8px;
-            background-color: #ffebee;
-            border: 1px solid #f44336;
-            color: #d32f2f;
+            display: none;
         }
 
         #error-message.hidden {
@@ -219,7 +212,7 @@
             <ul id="alert-list"></ul>
         </div>
 
-        <!-- Test elements -->
+        <!-- Hidden test elements -->
         <div id="alerts-display"></div>
         <div id="error-message" class="hidden"></div>
     </div>
