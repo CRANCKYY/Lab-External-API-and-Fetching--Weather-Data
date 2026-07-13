@@ -1,0 +1,22 @@
+{
+  "name": "weather-alerts-app",
+  "version": "1.0.0",
+  "description": "Weather alerts application using National Weather Service API",
+  "main": "index.js",
+  "scripts": {
+    "test": "jest --coverage",
+    "start": "open index.html"
+  },
+  "devDependencies": {
+    "jest": "^29.0.0",
+    "jest-environment-jsdom": "^29.0.0"
+  },
+  "jest": {
+    "testEnvironment": "jsdom",
+    "collectCoverage": true,
+    "coverageDirectory": "coverage",
+    "coverageReporters": ["text", "lcov"],
+    "testMatch": ["**/test/**/*.test.js"],
+    "verbose": true
+  }
+}
